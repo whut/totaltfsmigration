@@ -237,22 +237,34 @@ namespace TFSProjectMigration
                 ArrayList array = newWorkItem.Validate();
                 foreach (Field item in array)
                 {
-                    logger.Info(String.Format("Work item {0} Validation Error in field: {1}  : {2}", workItem.Id, item.Name, newWorkItem.Fields[item.Name].Value));
+                    logger.Info(String.Format("Work item {0} Validation Error in field: {1}  : {2} - {3}", workItem.Id, item.Name, newWorkItem.Fields[item.Name].Value, item.Status));
                 }
                 //if work item is valid
                 if (array.Count == 0)
                 {
-                    UploadAttachments(newWorkItem, workItem);
-                    newWorkItem.Save();
-                    itemMap.Add(workItem.Id, newWorkItem.Id);
-                    newItems.Add(workItem);
-                    //update workitem status
-                    updateToLatestStatus(workItem, newWorkItem);
+                    SaveWorkItemFinal(newItems, workItem, newWorkItem);
                 }
                 else
                 {
-                    // TODO !!!
-                    logger.Info(String.Format("Work item {0} could not be saved", workItem.Id));
+                    foreach (Field field in array)
+                    {
+                        logger.Info("RK: Setting null to field " + field.Name + " on work item #" + newWorkItem.Id + " (old #" + workItem.Id);
+                        newWorkItem.Fields[field.Name].Value = null;
+                    }
+                    array = newWorkItem.Validate();
+                    foreach (Field item in array)
+                    {
+                        logger.Info(String.Format("Work item {0} Validation Error2 in field: {1}  : {2} - {3}", workItem.Id, item.Name, newWorkItem.Fields[item.Name].Value, item.Status));
+                    }
+
+                    if (array.Count != 0)
+                    {
+                        logger.Info(String.Format("Work item {0} could not be saved", workItem.Id));
+                    }
+                    else
+                    {
+                        SaveWorkItemFinal(newItems, workItem, newWorkItem);
+                    }
                 }
 
                 ProgressBar.Dispatcher.BeginInvoke(new Action(delegate()
@@ -265,6 +277,16 @@ namespace TFSProjectMigration
 
             WriteMaptoFile(sourceProjectName);
             CreateLinks(newItems, sourceStore);
+        }
+
+        private void SaveWorkItemFinal(List<WorkItem> newItems, WorkItem workItem, WorkItem newWorkItem)
+        {
+            UploadAttachments(newWorkItem, workItem);
+            newWorkItem.Save();
+            itemMap.Add(workItem.Id, newWorkItem.Id);
+            newItems.Add(workItem);
+            //update workitem status
+            updateToLatestStatus(workItem, newWorkItem);
         }
 
         private Hashtable ListToTable(List<object> map)
@@ -408,22 +430,28 @@ namespace TFSProjectMigration
             }
         }
 
-
+        // source tree, target tfs
         public void GenerateIterations(XmlNode tree, string sourceProjectName)
         {
-            ICommonStructureService css = (ICommonStructureService)tfs.GetService(typeof(ICommonStructureService));
+            ICommonStructureService4 css = (ICommonStructureService4)tfs.GetService(typeof(ICommonStructureService4));
             string rootNodePath = string.Format("\\{0}\\Iteration", projectName);
             var pathRoot = css.GetNodeFromPath(rootNodePath);
 
+            string firstReleaseName = tree.FirstChild.FirstChild.Attributes["Name"].Value;
+            css.CreateNode(firstReleaseName, pathRoot.Uri, DateTime.Parse(tree.FirstChild.FirstChild.Attributes["StartDate"].Value), DateTime.Parse(tree.FirstChild.FirstChild.Attributes["FinishDate"].Value));
+
+            string firstReleaseNodePath = string.Format("\\{0}\\Iteration\\{1}", projectName, firstReleaseName);
+            var firstReleasePathRoot = css.GetNodeFromPath(firstReleaseNodePath);
+
             if (tree.FirstChild != null)
             {
-                int myNodeCount = tree.FirstChild.ChildNodes.Count;
+                int myNodeCount = tree.FirstChild.FirstChild.ChildNodes[0].ChildNodes.Count;
                 for (int i = 0; i < myNodeCount; i++)
                 {
-                    XmlNode Node = tree.ChildNodes[0].ChildNodes[i];
+                    XmlNode Node = tree.FirstChild.FirstChild.ChildNodes[0].ChildNodes[i];
                     try
                     {
-                        css.CreateNode(Node.Attributes["Name"].Value, pathRoot.Uri);
+                        css.CreateNode(Node.Attributes["Name"].Value, firstReleasePathRoot.Uri, DateTime.Parse(Node.Attributes["StartDate"].Value), DateTime.Parse(Node.Attributes["FinishDate"].Value));
                     }
                     catch (Exception ex)
                     {
