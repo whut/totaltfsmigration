@@ -1,21 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.TeamFoundation.Proxy;
-using Microsoft.TeamFoundation.Server;
+﻿using log4net;
 using Microsoft.TeamFoundation.Client;
-using Microsoft.TeamFoundation.TestManagement.Client;
+using Microsoft.TeamFoundation.Server;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Microsoft.TeamFoundation.WorkItemTracking.Proxy;
-using System.Xml;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
-using log4net.Config;
-using log4net;
 using System.Windows.Controls;
-using System.Text.RegularExpressions;
+using System.Xml;
 
 namespace TFSProjectMigration
 {
@@ -102,13 +95,20 @@ namespace TFSProjectMigration
                     i++;
                     // If we could not do the incremental state change then we are done.  We will have to go back to the orginal...
                     if (!success)
+                    {
+                        logger.Info("RK: Could not set correct state for #" + newWorkItem.Id + "(old #" + oldWorkItem.Id + ")");
                         break;
+                    }
                 }
             }
             else
             {
                 // Just save it off if we can.
                 bool success = ChangeWorkItemStatus(newWorkItem, originalState, sourceState);
+                if (!success)
+                {
+                    logger.Info("RK1: Could not set correct state for #" + newWorkItem.Id + "(old #" + oldWorkItem.Id + ")");
+                }
             }
         }
 
@@ -141,7 +141,7 @@ namespace TFSProjectMigration
                 workItem.Open();
                 workItem.Fields["State"].Value = destState;
                 workItem.Fields["Reason"].Value = reason;
- 
+
                 ArrayList list = workItem.Validate();
                 workItem.Save();
 
@@ -168,6 +168,7 @@ namespace TFSProjectMigration
             {
                 if (itemMap.ContainsKey(workItem.Id))
                 {
+                    logger.Info("RK: skipping already imported work item #" + workItem.Id);
                     continue;
                 }
 
@@ -175,10 +176,12 @@ namespace TFSProjectMigration
                 Hashtable fieldMap = ListToTable((List<object>)fieldMapAll[workItem.Type.Name]);
                 if (workItem.Type.Name == "User Story")
                 {
+                    logger.Info("RK: changed workitem #" + workItem.Id + " to product backlog item");
                     newWorkItem = new WorkItem(workItemTypes["Product Backlog Item"]);
                 }
                 else if (workItem.Type.Name == "Issue")
                 {
+                    logger.Info("RK: changed workitem #" + workItem.Id + " to impediment");
                     newWorkItem = new WorkItem(workItemTypes["Impediment"]);
                 }
                 else if (workItemTypes.Contains(workItem.Type.Name))
@@ -210,16 +213,23 @@ namespace TFSProjectMigration
                                 int length = sourceProjectName.Length;
                                 string itPathNew = destinationProject.Name + itPath.Substring(length);
                                 newWorkItem.Fields[field.Name].Value = itPathNew;
+                                logger.Info("RK: updated " + field.Name + " from " + field.Value + " to " + itPathNew + " for workitem #" + workItem.Id);
                             }
-                            catch (Exception)
+                            catch (Exception ex)
                             {
+                                logger.Info("RK: exception during path mapping: " + ex);
                             }
                         }
                     }
                     //Add values to mapped fields
                     else if (fieldMap.ContainsKey(field.Name))
                     {
+                        logger.Info("RK: workitem #" + workItem.Id + " field " + field.Name + " mapped to " + fieldMap[field.Name]);
                         newWorkItem.Fields[(string)fieldMap[field.Name]].Value = field.Value;
+                    }
+                    else
+                    {
+                        logger.Info("RK: unknown field " + field.Name + " for work item #" + workItem.Id);
                     }
                 }
 
@@ -227,7 +237,7 @@ namespace TFSProjectMigration
                 ArrayList array = newWorkItem.Validate();
                 foreach (Field item in array)
                 {
-                        logger.Info(String.Format("Work item {0} Validation Error in field: {1}  : {2}", workItem.Id, item.Name, newWorkItem.Fields[item.Name].Value));
+                    logger.Info(String.Format("Work item {0} Validation Error in field: {1}  : {2}", workItem.Id, item.Name, newWorkItem.Fields[item.Name].Value));
                 }
                 //if work item is valid
                 if (array.Count == 0)
@@ -241,6 +251,7 @@ namespace TFSProjectMigration
                 }
                 else
                 {
+                    // TODO !!!
                     logger.Info(String.Format("Work item {0} could not be saved", workItem.Id));
                 }
 
@@ -311,7 +322,7 @@ namespace TFSProjectMigration
                         try
                         {
                             WorkItem targetItem = sourceStore.GetWorkItem(link.TargetId);
-                            if (itemMap.ContainsKey(link.TargetId)  && targetItem != null)
+                            if (itemMap.ContainsKey(link.TargetId) && targetItem != null)
                             {
 
                                 int targetWorkItemID = 0;
@@ -319,7 +330,11 @@ namespace TFSProjectMigration
                                 {
                                     targetWorkItemID = (int)itemMap[link.TargetId];
                                 }
-                                
+                                else
+                                {
+                                    logger.Info("RK: work item id not found! " + link.TargetId + " linked from " + workItem.Id);
+                                }
+
                                 //if the link is not already created(check if target id is not in list)
                                 if (!linkedWorkItemList.Contains(link.TargetId))
                                 {
@@ -343,6 +358,10 @@ namespace TFSProjectMigration
                                         logger.Info(String.Format("Error occured when crearting link for work item: {0} target item: {1}", workItem.Id, link.TargetId));
                                     }
 
+                                }
+                                else
+                                {
+                                    logger.Info("RK: link already created " + link.TargetId + " linked from " + workItem.Id);
                                 }
                             }
                             else
@@ -406,11 +425,31 @@ namespace TFSProjectMigration
                     {
                         css.CreateNode(Node.Attributes["Name"].Value, pathRoot.Uri);
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
                         //node already exists
+                        logger.Info("RK: Iteration already exists: " + ex);
                         continue;
                     }
+                }
+            }
+            else
+            {
+                try
+                {
+                    logger.Info("RK: " + tree.Name);
+                }
+                catch (Exception ex)
+                {
+                    logger.Info("RK: " + ex);
+                }
+                try
+                {
+                    logger.Info("RK2: " + tree.Attributes["Name"].Value);
+                }
+                catch (Exception ex)
+                {
+                    logger.Info("RK: " + ex);
                 }
             }
             RefreshCache();
@@ -458,7 +497,7 @@ namespace TFSProjectMigration
                 {
                     css.CreateNode(Node.Attributes["Name"].Value, path.Uri);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     //node already exists
                     continue;

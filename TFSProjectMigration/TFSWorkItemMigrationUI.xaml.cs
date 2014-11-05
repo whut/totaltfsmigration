@@ -54,7 +54,7 @@ namespace TFSProjectMigration
         public TFSWorkItemMigrationUI()
         {
             InitializeComponent();
-            DOMConfigurator.Configure();
+            XmlConfigurator.Configure();
         }
 
         private void ConnectSourceProjectButton_Click(object sender, RoutedEventArgs e)
@@ -173,7 +173,7 @@ namespace TFSProjectMigration
             {
                 StatusViwer.Content = "Generating Areas...";
             }));
-            writeTarget.GenerateAreas(iterations[0], sourceProject.Name); //Copy Areas
+            //writeTarget.GenerateAreas(iterations[0], sourceProject.Name); //Copy Areas
 
             StatusViwer.Dispatcher.BeginInvoke(new Action(delegate()
             {
@@ -185,7 +185,7 @@ namespace TFSProjectMigration
             {
                 StatusViwer.Content = StatusViwer.Content + "\nCopying Team Queries...";
             }));
-            writeTarget.SetTeamQueries(readSource.queryCol, sourceProject.Name); //Copy Queries
+            //writeTarget.SetTeamQueries(readSource.queryCol, sourceProject.Name); //Copy Queries
 
             StatusViwer.Dispatcher.BeginInvoke(new Action(delegate()
             {

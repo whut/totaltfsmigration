@@ -1,19 +1,10 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using Microsoft.TeamFoundation.Proxy;
-using Microsoft.TeamFoundation.Server;
+﻿using log4net;
 using Microsoft.TeamFoundation.Client;
-using Microsoft.TeamFoundation.TestManagement.Client;
+using Microsoft.TeamFoundation.Server;
 using Microsoft.TeamFoundation.WorkItemTracking.Client;
-using System.Xml;
+using System;
 using System.IO;
-using log4net.Config;
-using log4net;
+using System.Xml;
 
 namespace TFSProjectMigration
 {
@@ -80,7 +71,7 @@ namespace TFSProjectMigration
                                                    " WHERE [System.TeamProject] = '" + project +
                                                    "' ORDER BY [System.Id]");
             }
-            System.Diagnostics.Debug.WriteLine(query);
+            logger.Info("RK: " + query);
             WorkItemCollection workItemCollection = store.Query(query);
             SaveAttachments(workItemCollection);
             return workItemCollection;
@@ -118,11 +109,11 @@ namespace TFSProjectMigration
                             {
                                 webClient.DownloadFile(att.Uri, path + "\\" + att.Name);
                             }
-                            else 
+                            else
                             {
                                 webClient.DownloadFile(att.Uri, path + "\\" + att.Id + "_" + att.Name);
                             }
-                           
+
                         }
                         catch (Exception)
                         {

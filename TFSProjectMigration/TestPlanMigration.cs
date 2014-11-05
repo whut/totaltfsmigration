@@ -1,15 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using log4net;
 using Microsoft.TeamFoundation.Client;
-using Microsoft.TeamFoundation.WorkItemTracking.Client;
 using Microsoft.TeamFoundation.TestManagement.Client;
-using Microsoft.TeamFoundation.Server;
-using log4net.Config;
-using log4net;
+using System;
+using System.Collections;
 using System.Windows.Controls;
 
 namespace TFSProjectMigration
@@ -34,7 +27,7 @@ namespace TFSProjectMigration
 
         private ITestManagementTeamProject GetProject(TfsTeamProjectCollection tfs, string project)
         {
-            
+
             ITestManagementService tms = tfs.GetService<ITestManagementService>();
 
             return tms.GetTeamProject(project);
@@ -42,7 +35,7 @@ namespace TFSProjectMigration
         public void CopyTestPlans()
         {
             int i = 1;
-            int planCount= sourceproj.TestPlans.Query("Select * From TestPlan").Count;
+            int planCount = sourceproj.TestPlans.Query("Select * From TestPlan").Count;
             //delete Test Plans if any existing test plans.
             //foreach (ITestPlan destinationplan in destinationproj.TestPlans.Query("Select * From TestPlan"))
             //{
@@ -52,10 +45,10 @@ namespace TFSProjectMigration
             //    destinationplan.Delete(DeleteAction.ForceDeletion); ;
 
             //}
-           
+            logger.Info("RK: found " + planCount + " test plans");
             foreach (ITestPlan sourceplan in sourceproj.TestPlans.Query("Select * From TestPlan"))
             {
-                System.Diagnostics.Debug.WriteLine("Plan - {0} : {1}", sourceplan.Id, sourceplan.Name);
+                logger.InfoFormat("RK: Plan - {0} : {1}", sourceplan.Id, sourceplan.Name);
 
                 ITestPlan destinationplan = destinationproj.TestPlans.Create();
 
@@ -63,7 +56,9 @@ namespace TFSProjectMigration
                 destinationplan.Description = sourceplan.Description;
                 destinationplan.StartDate = sourceplan.StartDate;
                 destinationplan.EndDate = sourceplan.EndDate;
-                destinationplan.State = sourceplan.State;            
+                destinationplan.State = sourceplan.State;
+                // destinationplan.Owner
+                // destinationplan.testpo
                 destinationplan.Save();
 
                 //drill down to root test suites.
@@ -71,14 +66,18 @@ namespace TFSProjectMigration
                 {
                     CopyTestSuites(sourceplan, destinationplan);
                 }
+                else
+                {
+                    logger.Info("RK: No test suites found for plan " + sourceplan.Name);
+                }
 
                 destinationplan.Save();
 
                 progressBar.Dispatcher.BeginInvoke(new Action(delegate()
                 {
-                    float progress = (float)i / (float) planCount;
+                    float progress = (float)i / (float)planCount;
 
-                    progressBar.Value = ((float)i / (float) planCount) * 100;
+                    progressBar.Value = ((float)i / (float)planCount) * 100;
                 }));
                 i++;
             }
@@ -89,6 +88,8 @@ namespace TFSProjectMigration
         private void CopyTestSuites(ITestPlan sourceplan, ITestPlan destinationplan)
         {
             ITestSuiteEntryCollection suites = sourceplan.RootSuite.Entries;
+            logger.Info("RK: found " + suites.Count + " in test plan " + sourceplan.Name);
+
             CopyTestCases(sourceplan.RootSuite, destinationplan.RootSuite);
 
             foreach (ITestSuiteEntry suite_entry in suites)
@@ -104,6 +105,10 @@ namespace TFSProjectMigration
                     CopyTestCases(suite, newSuite);
                     if (suite.Entries.Count > 0)
                         CopySubTestSuites(suite, newSuite);
+                }
+                else
+                {
+                    logger.Info("RK: suite entry is not static suite " + suite_entry.Title);
                 }
             }
 
@@ -125,7 +130,10 @@ namespace TFSProjectMigration
 
                     if (suite.Entries.Count > 0)
                         CopySubTestSuites(suite, subSuite);
-
+                }
+                else
+                {
+                    logger.Info("RK: subtestsuite " + suite.Title + " from parent " + parentsourceSuite.Title + " is not a static suite");
                 }
             }
 
@@ -145,6 +153,10 @@ namespace TFSProjectMigration
                     if (!workItemMap.ContainsKey(testcase.TestCase.WorkItem.Id))
                     {
                         continue;
+                    }
+                    else
+                    {
+                        logger.Info("RK: could not find test case with id " + testcase.TestCase.WorkItem.Id);
                     }
 
                     int newWorkItemID = (int)workItemMap[testcase.TestCase.WorkItem.Id];
@@ -166,13 +178,21 @@ namespace TFSProjectMigration
                                 sharedStepRef.SharedStepId = newSharedStepId;
                                 updateTestCase = true;
                             }
+                            else
+                            {
+                                logger.Info("RK: could not find new shared step for " + sharedStepRef.SharedStepId);
+                            }
 
                         }
                     }
                     if (updateTestCase)
                     {
-                        Console.WriteLine();
-                        Console.WriteLine("Test case with Id: {0} updated", tc.Id);
+                        logger.InfoFormat("Test case with Id: {0} updated", tc.Id);
+                        tc.Save();
+                    }
+                    else
+                    {
+                        logger.Info("RK: Test case " + tc.Id + " saved.");
                         tc.Save();
                     }
                 }

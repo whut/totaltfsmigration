@@ -1,20 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Microsoft.TeamFoundation.Client;
+using Microsoft.TeamFoundation.TestManagement.Client;
+using Microsoft.TeamFoundation.WorkItemTracking.Client;
+using System;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
-using Microsoft.TeamFoundation.Client;
-using Microsoft.TeamFoundation.TestManagement.Client;
-using System.ComponentModel;
-using Microsoft.TeamFoundation.WorkItemTracking.Client;
 
 namespace TFSProjectMigration
 {
@@ -32,7 +21,6 @@ namespace TFSProjectMigration
             set { _tfs = value; }
         }
         string projectName = "aa";
-        Window mainWindow;
         public string targetProjectName
         {
             get { return projectName; }
