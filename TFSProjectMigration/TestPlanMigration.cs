@@ -106,7 +106,7 @@ namespace TFSProjectMigration
                     if (suite.Entries.Count > 0)
                         CopySubTestSuites(suite, newSuite);
                 }
-                else
+                else if (suite_entry.TestSuite != null)
                 {
                     logger.Info("RK: suite entry is not static suite " + suite_entry.Title);
                 }
@@ -131,7 +131,7 @@ namespace TFSProjectMigration
                     if (suite.Entries.Count > 0)
                         CopySubTestSuites(suite, subSuite);
                 }
-                else
+                else if (suite_entry.TestSuite != null)
                 {
                     logger.Info("RK: subtestsuite " + suite.Title + " from parent " + parentsourceSuite.Title + " is not a static suite");
                 }
@@ -152,11 +152,8 @@ namespace TFSProjectMigration
                 {   //check whether testcase exists in new work items(closed work items may not be created again).
                     if (!workItemMap.ContainsKey(testcase.TestCase.WorkItem.Id))
                     {
-                        continue;
-                    }
-                    else
-                    {
                         logger.Info("RK: could not find test case with id " + testcase.TestCase.WorkItem.Id);
+                        continue;
                     }
 
                     int newWorkItemID = (int)workItemMap[testcase.TestCase.WorkItem.Id];
@@ -206,5 +203,5 @@ namespace TFSProjectMigration
     }
 
 
-    
+
 }
